@@ -55,29 +55,32 @@ async function pr(data, len) {
   return n;
 }
 async function stoch(data, len, sd, sk) {
-  var length = (!len) ? 14 : len;
-  var smoothd = (!sd) ? 3 : sd;
-  var smoothk = (!sk) ? 3 : sk;
-  if(length < smoothd) [length, smoothd] = [smoothd, length];
-  if(smoothk > smoothd) [smoothk, smoothd] = [smoothd, smoothk];
+   var length = len;
+   var smoothd = sd;
+   var smoothk = sk;
+
   var stoch = [], high = [], low = [], ka = [];
+  var smoothedk = [],d = [],kb= [];
+  var realk=0
   for(var i = 0; i < data.length; i++) {
     high.push(data[i][0]), low.push(data[i][2]);
     if(high.length >= length) {
-      var highd = await Math.max.apply(null, high), lowd = await Math.min.apply(null, low),
+      var highd = await Math.max.apply(length, high), lowd = await Math.min.apply(length, low),
       k = 100 * (data[i][1] - lowd) / (highd - lowd);
+      realk=k;
       ka.push(k)
-    }
-    if(smoothk > 0 && ka.length > smoothk) {
+
+    if(smoothk > 0 && ka.length >=smoothk) {
       var smoothedk = await module.exports.sma(ka, smoothk);
-      ka.push(smoothedk[smoothedk.length - 1]);
+      kb.push(smoothedk[smoothedk.length - 1]);
+      realk=smoothedk[smoothedk.length - 1]
     }
-    if(ka.length - smoothk >= smoothd) {
-      var d = await module.exports.sma(ka.slice(smoothk), smoothd);
-      stoch.push([k, d[d.length - 1]]);
-      high.splice(0, 1);
-      low.splice(0, 1);
-      ka.splice(0, 1);
+
+    var d = await module.exports.sma(kb.slice(smoothk), smoothd);
+
+    stoch.push([realk, d[d.length - 1]]);
+    high.splice(0, 1);
+    low.splice(0, 1);
     }
   }
   return stoch;
@@ -112,17 +115,22 @@ async function sma(data, len) {
 }
 async function smma(data, len) {
   var length = (!len) ? 14 : len;
-  var pl = [], smma = [];
+  var pl = [], smma = [],presmma = 0;
   for(var i = 0; i < data.length; i++) {
     pl.push(data[i]);
-    if(pl.length >= length) {
+    if(presmma==0&&pl.length >= length) {
       var average = 0;
       for(q in pl) average += pl[q];
-      if(smma) {
-        smma.push(average / length);
-      } else {
-        smma.push((average - sma1 + data[i]) / length);
-      }
+      average=average/ length;
+      smma.push(average);
+      presmma = average;
+      pl.splice(0, 1);
+      } 
+    else if(presmma!=0 &&pl.length >= length){
+      var average = 0;
+      average = (presmma*(length-1)+data[i])/length;
+      smma.push(average );
+      presmma = average ;
       pl.splice(0, 1);
     }
   }
